@@ -1,75 +1,97 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow strict-local
- */
+import React, { Component } from 'react';
+import { SafeAreaView, StyleSheet, ScrollView, StatusBar, Text, View } from 'react-native';
+import { Header, Colors } from 'react-native/Libraries/NewAppScreen';
+import realm, { schemaVersion } from 'realm';
+import * as realmSchemas from './schemas';
 
-import React from 'react';
-import {
-  SafeAreaView,
-  StyleSheet,
-  ScrollView,
-  View,
-  Text,
-  StatusBar,
-} from 'react-native';
 
-import {
-  Header,
-  LearnMoreLinks,
-  Colors,
-  DebugInstructions,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
 
-const App: () => React$Node = () => {
-  return (
-    <>
-      <StatusBar barStyle="dark-content" />
-      <SafeAreaView>
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          style={styles.scrollView}>
-          <Header />
-          {global.HermesInternal == null ? null : (
-            <View style={styles.engine}>
-              <Text style={styles.footer}>Engine: Hermes</Text>
-            </View>
-          )}
-          <View style={styles.body}>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Step One</Text>
-              <Text style={styles.sectionDescription}>
-                Edit <Text style={styles.highlight}>App.js</Text> to change this
-                screen and then come back to see your edits.
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>See Your Changes</Text>
-              <Text style={styles.sectionDescription}>
-                <ReloadInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Debug</Text>
-              <Text style={styles.sectionDescription}>
-                <DebugInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Learn More</Text>
-              <Text style={styles.sectionDescription}>
-                Read the docs to discover what to do next:
-              </Text>
-            </View>
-            <LearnMoreLinks />
+
+class App extends Component {
+  state = {};
+  realmInstance = {};
+
+  async componentDidMount() {
+
+    this.realmInstance.parents = await new realm({
+      schema: [realmSchemas.parentSchema, realmSchemas.childSchema],
+      schemaVersion: realmSchemas.parentSchema.schemaVersion,
+      path: 'parents'
+    });
+
+    this.realmInstance.lightObjects = await new realm({
+      schema: [realmSchemas.lightObjectSchema],
+      schemaVersion: realmSchemas.lightObjectSchema.schemaVersion,
+      path: 'lightObject'
+    });
+
+    await this.writeData();
+
+  }
+
+  async writeData() {
+    let info = {};
+
+    this.realmInstance.parents.write(() => {
+      console.log("TCL: App -> writeData -> this.realmInstance.parents.write");
+      let startParentsWrite = new Date();
+      for (let i = 0; i < 100; i++) {
+        let obj = {
+          id: `parent${i}`,
+          child: {
+            id: `child${i}`
+          }
+        };
+        this.realmInstance.parents.create('parent', obj);
+      };
+
+      let totalParentsWrite = new Date() - startParentsWrite;
+      info.avgParentWrite = totalParentsWrite / 100;
+    });
+
+
+    this.realmInstance.lightObjects.write(() => {
+      console.log("TCL: App -> writeData -> this.realmInstance.lightObjects.write");
+      let startLightObjectsWrite = new Date();
+      for (let i = 0; i < 100; i++) {
+        let obj = {
+          id: `lightObject${i}`,
+        };
+        this.realmInstance.lightObjects.create('lightObject', obj);
+
+        let totalLightObjectsWrite = new Date() - startLightObjectsWrite;
+        info.avgLightObjectWrite = totalLightObjectsWrite / 100;
+      };
+    });
+
+    console.log("TCL: App -> writeData -> info", info);
+    this.setState({ info });
+
+  }
+
+
+  render() {
+    const { realmLoaded, info } = this.state;
+
+    return (
+      <>
+        <StatusBar barStyle="dark-content" />
+        <SafeAreaView>
+          <ScrollView
+            contentInsetAdjustmentBehavior="automatic"
+            style={styles.scrollView}>
+            <Header />
+          </ScrollView>
+          <View style={styles.container}>
+            {(!info)
+              ? <Text>realm is loading...</Text>
+              : <>{Object.entries(info).map(([key, val]) => <Text>{`${key} - ${val} ms`}</Text>)}</>
+            }
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    </>
-  );
+        </SafeAreaView>
+      </>
+    );
+  }
 };
 
 const styles = StyleSheet.create({
@@ -83,32 +105,9 @@ const styles = StyleSheet.create({
   body: {
     backgroundColor: Colors.white,
   },
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: Colors.black,
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-    color: Colors.dark,
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-  footer: {
-    color: Colors.dark,
-    fontSize: 12,
-    fontWeight: '600',
-    padding: 4,
-    paddingRight: 12,
-    textAlign: 'right',
-  },
+  container: {
+    padding: 15
+  }
 });
 
 export default App;
